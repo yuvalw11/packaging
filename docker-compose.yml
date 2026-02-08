@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "3001:3001"
+    volumes:
+      - packing-data:/app/data
+    environment:
+      - DB_PATH=/app/data/packing.db
+    networks:
+      - packing-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - packing-network
+
+networks:
+  packing-network:
+    driver: bridge
+
+volumes:
+  packing-data:
+    driver: local

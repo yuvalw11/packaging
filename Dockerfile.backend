@@ -1,0 +1,15 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Create data directory for SQLite database
+RUN mkdir -p /app/data
+
+COPY package.json .
+RUN npm install
+
+COPY server.js .
+
+EXPOSE 3001
+
+CMD ["npm", "start"]
