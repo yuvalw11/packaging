@@ -300,6 +300,62 @@ function App() {
     await fetchSummary();
   };
 
+  const exportData = async () => {
+    try {
+      const res = await fetch(`${API_URL}/export`);
+      const data = await res.json();
+      
+      // Create a blob and download
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `packing-data-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      alert('Error exporting data: ' + error.message);
+    }
+  };
+
+  const importData = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      
+      if (!window.confirm('This will replace all current data. Are you sure?')) {
+        event.target.value = '';
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      const result = await res.json();
+      
+      if (result.success) {
+        alert(`Successfully imported ${result.imported.suitcases} suitcases and ${result.imported.items} items!`);
+        await fetchSuitcases();
+        await fetchItems();
+        await fetchSummary();
+      } else {
+        alert('Import failed: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      alert('Error importing data: ' + error.message);
+    }
+    
+    event.target.value = '';
+  };
+
   const groupedBySuitcase = items.reduce((acc, item) => {
     if (!acc[item.suitcase_id]) {
       acc[item.suitcase_id] = {
@@ -315,6 +371,20 @@ function App() {
     <div className="App">
       <header>
         <h1>📦 House Moving Packing App</h1>
+        <div className="header-actions">
+          <button onClick={exportData} className="export-btn">
+            📥 Export Data
+          </button>
+          <label className="import-btn">
+            📤 Import Data
+            <input
+              type="file"
+              accept=".json"
+              onChange={importData}
+              style={{ display: 'none' }}
+            />
+          </label>
+        </div>
       </header>
 
       <nav className="tabs">

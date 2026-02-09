@@ -289,6 +289,74 @@ app.delete('/api/suitcases/:id', (req, res) => {
   });
 });
 
+// Export all data
+app.get('/api/export', (req, res) => {
+  const exportData = {
+    version: '1.0',
+    exportDate: new Date().toISOString(),
+    suitcases: [],
+    items: []
+  };
+
+  // Get all suitcases
+  db.all('SELECT * FROM suitcases', (err, suitcases) => {
+    if (err) return res.status(500).json({ error: err.message });
+    exportData.suitcases = suitcases;
+
+    // Get all items
+    db.all('SELECT * FROM items', (err, items) => {
+      if (err) return res.status(500).json({ error: err.message });
+      exportData.items = items;
+
+      res.json(exportData);
+    });
+  });
+});
+
+// Import data
+app.post('/api/import', (req, res) => {
+  const data = req.body;
+
+  // Validate data structure
+  if (!data || !data.suitcases || !data.items) {
+    return res.status(400).json({ error: 'Invalid data format' });
+  }
+
+  // Clear existing data
+  db.serialize(() => {
+    db.run('DELETE FROM items', (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+
+      db.run('DELETE FROM suitcases', (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        // Import suitcases
+        const suitcaseStmt = db.prepare('INSERT INTO suitcases (id, name) VALUES (?, ?)');
+        data.suitcases.forEach(suitcase => {
+          suitcaseStmt.run(suitcase.id, suitcase.name);
+        });
+        suitcaseStmt.finalize();
+
+        // Import items (handle backward compatibility)
+        const itemStmt = db.prepare('INSERT INTO items (id, type, suitcase_id, position) VALUES (?, ?, ?, ?)');
+        data.items.forEach(item => {
+          const position = item.position !== undefined ? item.position : 0;
+          itemStmt.run(item.id, item.type, item.suitcase_id, position);
+        });
+        itemStmt.finalize();
+
+        res.json({ 
+          success: true, 
+          imported: {
+            suitcases: data.suitcases.length,
+            items: data.items.length
+          }
+        });
+      });
+    });
+  });
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
