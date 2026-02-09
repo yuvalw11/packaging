@@ -248,6 +248,25 @@ app.patch('/api/items/rename', (req, res) => {
   );
 });
 
+// Move item to different suitcase
+app.patch('/api/items/move', (req, res) => {
+  const { type, from_suitcase_id, to_suitcase_id, position } = req.body;
+  
+  if (!type || !from_suitcase_id || !to_suitcase_id) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  
+  // Update the suitcase_id and position for all items of this type
+  db.run(
+    'UPDATE items SET suitcase_id = ?, position = ? WHERE type = ? AND suitcase_id = ?',
+    [to_suitcase_id, position, type, from_suitcase_id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ type, from_suitcase_id, to_suitcase_id, position, updated: this.changes });
+    }
+  );
+});
+
 // Delete item (removes all instances of type in suitcase)
 app.delete('/api/items/:type/:suitcase_id', (req, res) => {
   const { type, suitcase_id } = req.params;

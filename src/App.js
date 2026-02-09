@@ -166,11 +166,7 @@ function App() {
   const handleDragOver = (e, index, suitcaseId) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    
-    // Only show drag-over if we're in the same suitcase
-    if (draggedItem && draggedItem.suitcaseId === suitcaseId) {
-      setDragOverIndex(index);
-    }
+    setDragOverIndex(index);
   };
 
   const handleDragLeave = () => {
@@ -181,31 +177,65 @@ function App() {
     e.preventDefault();
     e.stopPropagation();
     
-    if (!draggedItem || draggedItem.suitcaseId !== suitcaseId) {
+    if (!draggedItem) {
       setDraggedItem(null);
       setDragOverIndex(null);
       return;
     }
     
-    const suitcaseItems = items.filter(item => item.suitcase_id === suitcaseId);
-    const newItems = [...suitcaseItems];
+    const fromSuitcaseId = draggedItem.suitcaseId;
+    const toSuitcaseId = suitcaseId;
     
-    // Remove from old position and insert at new position
-    const [movedItem] = newItems.splice(draggedItem.index, 1);
-    newItems.splice(dropIndex, 0, movedItem);
-    
-    // Update positions
-    const updates = newItems.map((item, index) => ({
-      type: item.type,
-      suitcase_id: suitcaseId,
-      position: index
-    }));
-    
-    await fetch(`${API_URL}/items/reorder`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: updates })
-    });
+    // Moving to a different suitcase
+    if (fromSuitcaseId !== toSuitcaseId) {
+      await fetch(`${API_URL}/items/move`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          type: draggedItem.item.type,
+          from_suitcase_id: fromSuitcaseId,
+          to_suitcase_id: toSuitcaseId,
+          position: dropIndex
+        })
+      });
+      
+      // Reorder items in the destination suitcase
+      const destItems = items.filter(item => item.suitcase_id === toSuitcaseId);
+      const updates = destItems.map((item, index) => ({
+        type: item.type,
+        suitcase_id: toSuitcaseId,
+        position: index >= dropIndex ? index + 1 : index
+      }));
+      
+      if (updates.length > 0) {
+        await fetch(`${API_URL}/items/reorder`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: updates })
+        });
+      }
+    } else {
+      // Reordering within same suitcase
+      const suitcaseItems = items.filter(item => item.suitcase_id === suitcaseId);
+      const newItems = [...suitcaseItems];
+      
+      // Remove from old position and insert at new position
+      const [movedItem] = newItems.splice(draggedItem.index, 1);
+      newItems.splice(dropIndex, 0, movedItem);
+      
+      // Update positions
+      const updates = newItems.map((item, index) => ({
+        type: item.type,
+        suitcase_id: suitcaseId,
+        position: index
+      }));
+      
+      await fetch(`${API_URL}/items/reorder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: updates })
+      });
+    }
     
     setDraggedItem(null);
     setDragOverIndex(null);
@@ -504,7 +534,16 @@ function App() {
                         </tbody>
                       </table>
                     ) : (
-                      <p className="empty-items">No items in this suitcase yet.</p>
+                      <div 
+                        className={`empty-items ${draggedItem ? 'drop-zone-active' : ''}`}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => handleDrop(e, 0, suitcase.id)}
+                      >
+                        No items in this suitcase yet. {draggedItem && <span className="drop-hint">Drop item here to add it</span>}
+                      </div>
                     )}
                   </div>
                 );
