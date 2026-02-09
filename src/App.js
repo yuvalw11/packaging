@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-const API_URL = 'http://localhost:3001/api';
+// Support both absolute and relative URLs for proxy scenarios
+// In production, use relative path if REACT_APP_API_URL is not set
+const API_URL = process.env.REACT_APP_API_URL || '/api';
 
 function App() {
   const [suitcases, setSuitcases] = useState([]);

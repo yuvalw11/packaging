@@ -7,10 +7,7 @@
 set -e  # Exit on any error
 
 # Configuration - ADD THESE ENV VARIABLES.
-# SERVER_USER="your-username"
-# SERVER_HOST="your-server-ip-or-domain"
-# SERVER_PATH="/home/${SERVER_USER}/packing-app"
-# SSH_KEY_PATH="~/.ssh/id_rsa"  # Optional: specify SSH key path
+source .env
 
 # Colors for output
 GREEN='\033[0;32m'
