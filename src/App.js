@@ -188,6 +188,7 @@ function App() {
     
     // Moving to a different suitcase
     if (fromSuitcaseId !== toSuitcaseId) {
+      // Move the item to the new suitcase at the specified position
       await fetch(`${API_URL}/items/move`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -198,22 +199,6 @@ function App() {
           position: dropIndex
         })
       });
-      
-      // Reorder items in the destination suitcase
-      const destItems = items.filter(item => item.suitcase_id === toSuitcaseId);
-      const updates = destItems.map((item, index) => ({
-        type: item.type,
-        suitcase_id: toSuitcaseId,
-        position: index >= dropIndex ? index + 1 : index
-      }));
-      
-      if (updates.length > 0) {
-        await fetch(`${API_URL}/items/reorder`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: updates })
-        });
-      }
     } else {
       // Reordering within same suitcase
       const suitcaseItems = items.filter(item => item.suitcase_id === suitcaseId);
@@ -295,6 +280,24 @@ function App() {
     return uniqueItemTypes.filter(type => 
       type.toLowerCase().includes(editItemType.toLowerCase())
     );
+  };
+
+  const moveItemToSuitcase = async (itemType, fromSuitcaseId, toSuitcaseId) => {
+    if (fromSuitcaseId === toSuitcaseId) return;
+    
+    await fetch(`${API_URL}/items/move`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        type: itemType,
+        from_suitcase_id: fromSuitcaseId,
+        to_suitcase_id: toSuitcaseId,
+        position: 999 // Add to end
+      })
+    });
+    
+    await fetchItems();
+    await fetchSummary();
   };
 
   const groupedBySuitcase = items.reduce((acc, item) => {
@@ -416,17 +419,18 @@ function App() {
                     )}
 
                     {suitcaseItems.length > 0 ? (
-                      <table className="items-table">
-                        <thead>
-                          <tr>
-                            <th width="40"></th>
-                            <th>Item Type</th>
-                            <th>Count</th>
-                            <th>Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {suitcaseItems.map((item, index) => (
+                      <div>
+                        <table className="items-table">
+                          <thead>
+                            <tr>
+                              <th width="40"></th>
+                              <th>Item Type</th>
+                              <th>Count</th>
+                              <th>Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {suitcaseItems.map((item, index) => (
                             <tr 
                               key={`${item.type}-${item.suitcase_id}`}
                               draggable
@@ -522,17 +526,50 @@ function App() {
                                 </div>
                               </td>
                               <td>
-                                <button 
-                                  onClick={() => deleteItem(item.type, item.suitcase_id)} 
-                                  className="delete-btn-small"
-                                >
-                                  Remove
-                                </button>
+                                <div className="action-controls">
+                                  <select 
+                                    className="move-select"
+                                    onChange={(e) => {
+                                      if (e.target.value) {
+                                        moveItemToSuitcase(item.type, item.suitcase_id, parseInt(e.target.value));
+                                        e.target.value = '';
+                                      }
+                                    }}
+                                    defaultValue=""
+                                  >
+                                    <option value="" disabled>Move to...</option>
+                                    {suitcases
+                                      .filter(s => s.id !== suitcase.id)
+                                      .map(s => (
+                                        <option key={s.id} value={s.id}>
+                                          {s.name}
+                                        </option>
+                                      ))
+                                    }
+                                  </select>
+                                  <button 
+                                    onClick={() => deleteItem(item.type, item.suitcase_id)} 
+                                    className="delete-btn-small"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
-                        </tbody>
-                      </table>
+                          </tbody>
+                        </table>
+                        <div 
+                          className={`drop-zone-bottom ${draggedItem && draggedItem.suitcaseId !== suitcase.id ? 'drop-zone-active' : ''}`}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onDrop={(e) => handleDrop(e, suitcaseItems.length, suitcase.id)}
+                        >
+                          {draggedItem && draggedItem.suitcaseId !== suitcase.id && <span className="drop-hint">Drop here to add to end</span>}
+                        </div>
+                      </div>
                     ) : (
                       <div 
                         className={`empty-items ${draggedItem ? 'drop-zone-active' : ''}`}

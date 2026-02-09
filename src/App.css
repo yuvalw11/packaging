@@ -410,6 +410,24 @@ tr:hover {
   font-style: normal;
 }
 
+.drop-zone-bottom {
+  min-height: 40px;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  text-align: center;
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+
+.drop-zone-bottom.drop-zone-active {
+  background: #e8f5e9;
+  border: 2px dashed #4caf50;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .empty-message {
   color: #666;
   font-style: italic;
@@ -433,6 +451,36 @@ tr:hover {
 
 .delete-btn-small:hover {
   background: #c0392b;
+}
+
+.action-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.move-select {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid #3498db;
+  border-radius: 4px;
+  background: white;
+  color: #3498db;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  min-width: 100px;
+}
+
+.move-select:hover {
+  background: #e3f2fd;
+  border-color: #2980b9;
+}
+
+.move-select:focus {
+  outline: none;
+  border-color: #2980b9;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
 
 .editable-item-name {

@@ -220,16 +220,6 @@ app.post('/api/items/reorder', (req, res) => {
     .catch(err => res.status(500).json({ error: err.message }));
 });
 
-// Update item count
-app.patch('/api/items/:id', (req, res) => {
-  const { id } = req.params;
-  const { count } = req.body;
-  db.run('UPDATE items SET count = ? WHERE id = ?', [count, id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ id, count, updated: this.changes });
-  });
-});
-
 // Rename item type (updates all instances of that type in a suitcase)
 app.patch('/api/items/rename', (req, res) => {
   const { oldType, newType, suitcase_id } = req.body;
@@ -256,15 +246,22 @@ app.patch('/api/items/move', (req, res) => {
     return res.status(400).json({ error: 'Missing required fields' });
   }
   
-  // Update the suitcase_id and position for all items of this type
-  db.run(
-    'UPDATE items SET suitcase_id = ?, position = ? WHERE type = ? AND suitcase_id = ?',
-    [to_suitcase_id, position, type, from_suitcase_id],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ type, from_suitcase_id, to_suitcase_id, position, updated: this.changes });
-    }
-  );
+  // Get max position in destination suitcase
+  db.get('SELECT COALESCE(MAX(position), -1) as maxPos FROM items WHERE suitcase_id = ?', [to_suitcase_id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    
+    const newPosition = typeof position !== 'undefined' ? position : row.maxPos + 1;
+    
+    // Update the suitcase_id and position for all items of this type
+    db.run(
+      'UPDATE items SET suitcase_id = ?, position = ? WHERE type = ? AND suitcase_id = ?',
+      [to_suitcase_id, newPosition, type, from_suitcase_id],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ type, from_suitcase_id, to_suitcase_id, position: newPosition, updated: this.changes });
+      }
+    );
+  });
 });
 
 // Delete item (removes all instances of type in suitcase)
