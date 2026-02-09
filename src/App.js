@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-// Support both absolute and relative URLs for proxy scenarios
-// In production, use relative path if REACT_APP_API_URL is not set
+// API endpoint configuration for dynamic API calls
+// Static assets (CSS, JS, images) are configured via PUBLIC_URL at build time
 const API_URL = process.env.REACT_APP_API_URL || '/api';
 
 function App() {

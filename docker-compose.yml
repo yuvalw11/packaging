@@ -21,9 +21,12 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
       args:
-        # Default to relative path for proxy setup
-        # Override with: docker-compose build --build-arg REACT_APP_API_URL=http://yourserver:3001/api
+        # API endpoint - Default to relative path for proxy setup
         REACT_APP_API_URL: ${REACT_APP_API_URL:-/api}
+        # Static files base URL - Controls where CSS/JS/images are loaded from
+        # Examples: https://cdn.example.com, https://static.example.com
+        # Default: empty (loads from same origin)
+        PUBLIC_URL: ${PUBLIC_URL:-}
     ports:
       - "3000:80"
     depends_on:

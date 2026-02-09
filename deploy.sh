@@ -40,7 +40,7 @@ print_step "Starting deployment process..."
 # Step 1: Build Docker images
 print_step "Building Docker images..."
 docker buildx build --platform "$ARCH" -t packing-backend:latest -f Dockerfile.backend --load .
-docker buildx build --platform "$ARCH" -t packing-frontend:latest -f Dockerfile.frontend --load .
+docker buildx build --platform "$ARCH" --build-arg "PUBLIC_URL=$PUBLIC_URL" --build-arg "REACT_APP_API_URL=$REACT_APP_API_URL" -t packing-frontend:latest -f Dockerfile.frontend --load .
 
 # Step 2: Save images to tar files
 print_step "Saving Docker images to tar files..."

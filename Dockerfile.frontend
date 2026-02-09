@@ -1,12 +1,16 @@
 FROM node:18-alpine as build
 
-# Accept build argument for API URL
+# Accept build arguments
 ARG REACT_APP_API_URL=/api
+ARG PUBLIC_URL=
 
 WORKDIR /app
 
-# Set environment variable for React build
+# Set environment variables for React build
+# REACT_APP_API_URL - For API calls in your code
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
+# PUBLIC_URL - For static asset paths in index.html (CSS, JS, images)
+ENV PUBLIC_URL=$PUBLIC_URL
 
 COPY frontend-package.json package.json
 RUN npm install
