@@ -13,11 +13,109 @@ app.use(express.json());
 const dbPath = process.env.DB_PATH || '/app/data/packing.db';
 const db = new sqlite3.Database(dbPath);
 
+// Helper function to generate a random pleasant color
+function generateRandomColor() {
+  const colors = [
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
+    '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B88B', '#ABEBC6',
+    '#FAD7A0', '#D7BDE2', '#A9CCE3', '#F9E79F', '#A3E4D7',
+    '#E8DAEF', '#D5F4E6', '#FADBD8', '#F5CBA7', '#D6EAF8',
+    '#FCF3CF', '#E59866', '#85929E', '#F39C12', '#27AE60'
+  ];
+  return colors[Math.floor(Math.random() * colors.length)];
+}
+
+// Helper function to ensure item type exists and optionally set category
+async function ensureItemTypeExists(itemType, categoryName = null) {
+  return new Promise((resolve, reject) => {
+    db.get('SELECT * FROM item_types WHERE name = ?', [itemType], (err, row) => {
+      if (err) return reject(err);
+      
+      if (row) {
+        // Item type exists
+        if (categoryName !== null) {
+          // Update with category if provided (allow changing existing category)
+          ensureCategoryExists(categoryName).then(categoryId => {
+            db.run('UPDATE item_types SET category_id = ? WHERE name = ?', 
+              [categoryId, itemType], 
+              (err) => {
+                if (err) return reject(err);
+                resolve({ itemTypeId: row.id, categoryId });
+              }
+            );
+          }).catch(reject);
+        } else {
+          resolve({ itemTypeId: row.id, categoryId: row.category_id });
+        }
+      } else {
+        // Create new item type
+        if (categoryName) {
+          ensureCategoryExists(categoryName).then(categoryId => {
+            db.run('INSERT INTO item_types (name, category_id) VALUES (?, ?)', 
+              [itemType, categoryId], 
+              function(err) {
+                if (err) return reject(err);
+                resolve({ itemTypeId: this.lastID, categoryId });
+              }
+            );
+          }).catch(reject);
+        } else {
+          db.run('INSERT INTO item_types (name, category_id) VALUES (?, NULL)', 
+            [itemType], 
+            function(err) {
+              if (err) return reject(err);
+              resolve({ itemTypeId: this.lastID, categoryId: null });
+            }
+          );
+        }
+      }
+    });
+  });
+}
+
+// Helper function to ensure category exists
+async function ensureCategoryExists(categoryName) {
+  return new Promise((resolve, reject) => {
+    if (!categoryName) return resolve(null);
+    
+    db.get('SELECT id FROM categories WHERE name = ?', [categoryName], (err, row) => {
+      if (err) return reject(err);
+      
+      if (row) {
+        resolve(row.id);
+      } else {
+        // Create new category with random color
+        const color = generateRandomColor();
+        db.run('INSERT INTO categories (name, color) VALUES (?, ?)', 
+          [categoryName, color], 
+          function(err) {
+            if (err) return reject(err);
+            resolve(this.lastID);
+          }
+        );
+      }
+    });
+  });
+}
+
 db.serialize(() => {
   // Create tables
   db.run(`CREATE TABLE IF NOT EXISTS suitcases (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    color TEXT NOT NULL
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS item_types (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    category_id INTEGER,
+    FOREIGN KEY (category_id) REFERENCES categories(id)
   )`);
 
   db.run(`CREATE TABLE IF NOT EXISTS items (
@@ -70,10 +168,14 @@ app.get('/api/items', (req, res) => {
       items.suitcase_id, 
       suitcases.name as suitcase_name,
       MIN(items.position) as position,
+      categories.name as category_name,
+      categories.color as category_color,
       COUNT(*) as count
     FROM items
     JOIN suitcases ON items.suitcase_id = suitcases.id
-    GROUP BY items.type, items.suitcase_id, suitcases.name
+    LEFT JOIN item_types ON items.type = item_types.name
+    LEFT JOIN categories ON item_types.category_id = categories.id
+    GROUP BY items.type, items.suitcase_id, suitcases.name, categories.name, categories.color
     ORDER BY suitcases.name, MIN(items.position), items.type
   `;
   db.all(query, (err, rows) => {
@@ -125,13 +227,21 @@ app.get('/api/suitcases/:id/items', (req, res) => {
   });
 });
 
-// Get item count by type (across all suitcases)
+// Get item count by type (across all suitcases) with category and suitcase info
 app.get('/api/items/summary', (req, res) => {
   const query = `
-    SELECT type, COUNT(*) as count
+    SELECT 
+      items.type,
+      categories.name as category_name,
+      categories.color as category_color,
+      suitcases.name as suitcase_name,
+      COUNT(*) as count
     FROM items
-    GROUP BY type
-    ORDER BY type
+    JOIN suitcases ON items.suitcase_id = suitcases.id
+    LEFT JOIN item_types ON items.type = item_types.name
+    LEFT JOIN categories ON item_types.category_id = categories.id
+    GROUP BY items.type, categories.name, categories.color, suitcases.name
+    ORDER BY items.type, suitcases.name
   `;
   db.all(query, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -139,25 +249,72 @@ app.get('/api/items/summary', (req, res) => {
   });
 });
 
-// Add item (creates one row per item)
-app.post('/api/items', (req, res) => {
-  const { type, suitcase_id, count = 1 } = req.body;
-  
-  // Get the max position for this suitcase
-  db.get('SELECT COALESCE(MAX(position), -1) as maxPos FROM items WHERE suitcase_id = ?', [suitcase_id], (err, row) => {
+// Get all categories
+app.get('/api/categories', (req, res) => {
+  db.all('SELECT * FROM categories ORDER BY name', (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    
-    const newPosition = row.maxPos + 1;
-    
-    // Insert multiple rows based on count with the new position
-    const placeholders = Array(count).fill('(?, ?, ?)').join(',');
-    const values = Array(count).fill([type, suitcase_id, newPosition]).flat();
-    
-    db.run(`INSERT INTO items (type, suitcase_id, position) VALUES ${placeholders}`, values, function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ type, count, suitcase_id, position: newPosition, rowsInserted: count });
-    });
+    res.json(rows);
   });
+});
+
+// Get all item types with their categories
+app.get('/api/item-types', (req, res) => {
+  const query = `
+    SELECT 
+      item_types.id,
+      item_types.name,
+      item_types.category_id,
+      categories.name as category_name,
+      categories.color as category_color
+    FROM item_types
+    LEFT JOIN categories ON item_types.category_id = categories.id
+    ORDER BY item_types.name
+  `;
+  db.all(query, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// Update item type category
+app.patch('/api/item-types/:name/category', async (req, res) => {
+  const { name } = req.params;
+  const { category } = req.body;
+  
+  try {
+    await ensureItemTypeExists(name, category);
+    res.json({ success: true, itemType: name, category });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add item (creates one row per item)
+app.post('/api/items', async (req, res) => {
+  const { type, suitcase_id, count = 1, category = null } = req.body;
+  
+  try {
+    // Ensure item type exists (and create it with category if provided)
+    await ensureItemTypeExists(type, category);
+    
+    // Get the max position for this suitcase
+    db.get('SELECT COALESCE(MAX(position), -1) as maxPos FROM items WHERE suitcase_id = ?', [suitcase_id], (err, row) => {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      const newPosition = row.maxPos + 1;
+      
+      // Insert multiple rows based on count with the new position
+      const placeholders = Array(count).fill('(?, ?, ?)').join(',');
+      const values = Array(count).fill([type, suitcase_id, newPosition]).flat();
+      
+      db.run(`INSERT INTO items (type, suitcase_id, position) VALUES ${placeholders}`, values, function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ type, count, suitcase_id, position: newPosition, rowsInserted: count });
+      });
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Increase item count (adds one more row)
@@ -220,22 +377,35 @@ app.post('/api/items/reorder', (req, res) => {
     .catch(err => res.status(500).json({ error: err.message }));
 });
 
-// Rename item type (updates all instances of that type in a suitcase)
-app.patch('/api/items/rename', (req, res) => {
-  const { oldType, newType, suitcase_id } = req.body;
+// Rename item type (updates all instances of that type across ALL suitcases)
+app.patch('/api/items/rename', async (req, res) => {
+  const { oldType, newType } = req.body;
   
-  if (!oldType || !newType || !suitcase_id) {
+  if (!oldType || !newType) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
   
-  db.run(
-    'UPDATE items SET type = ? WHERE type = ? AND suitcase_id = ?',
-    [newType, oldType, suitcase_id],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ oldType, newType, suitcase_id, updated: this.changes });
-    }
-  );
+  try {
+    // Update the item_types table
+    await new Promise((resolve, reject) => {
+      db.run('UPDATE item_types SET name = ? WHERE name = ?', [newType, oldType], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    
+    // Update all items with this type
+    db.run(
+      'UPDATE items SET type = ? WHERE type = ?',
+      [newType, oldType],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ oldType, newType, updated: this.changes });
+      }
+    );
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Move item to different suitcase
@@ -292,10 +462,12 @@ app.delete('/api/suitcases/:id', (req, res) => {
 // Export all data
 app.get('/api/export', (req, res) => {
   const exportData = {
-    version: '1.0',
+    version: '2.0', // Updated version to reflect new schema
     exportDate: new Date().toISOString(),
     suitcases: [],
-    items: []
+    items: [],
+    categories: [],
+    item_types: []
   };
 
   // Get all suitcases
@@ -308,7 +480,19 @@ app.get('/api/export', (req, res) => {
       if (err) return res.status(500).json({ error: err.message });
       exportData.items = items;
 
-      res.json(exportData);
+      // Get all categories
+      db.all('SELECT * FROM categories', (err, categories) => {
+        if (err) return res.status(500).json({ error: err.message });
+        exportData.categories = categories;
+
+        // Get all item types
+        db.all('SELECT * FROM item_types', (err, item_types) => {
+          if (err) return res.status(500).json({ error: err.message });
+          exportData.item_types = item_types;
+
+          res.json(exportData);
+        });
+      });
     });
   });
 });
@@ -322,35 +506,71 @@ app.post('/api/import', (req, res) => {
     return res.status(400).json({ error: 'Invalid data format' });
   }
 
+  const isV2 = data.version === '2.0' && data.categories && data.item_types;
+
   // Clear existing data
   db.serialize(() => {
+    // Delete in correct order to respect foreign keys
     db.run('DELETE FROM items', (err) => {
       if (err) return res.status(500).json({ error: err.message });
 
-      db.run('DELETE FROM suitcases', (err) => {
+      db.run('DELETE FROM item_types', (err) => {
         if (err) return res.status(500).json({ error: err.message });
 
-        // Import suitcases
-        const suitcaseStmt = db.prepare('INSERT INTO suitcases (id, name) VALUES (?, ?)');
-        data.suitcases.forEach(suitcase => {
-          suitcaseStmt.run(suitcase.id, suitcase.name);
-        });
-        suitcaseStmt.finalize();
+        db.run('DELETE FROM categories', (err) => {
+          if (err) return res.status(500).json({ error: err.message });
 
-        // Import items (handle backward compatibility)
-        const itemStmt = db.prepare('INSERT INTO items (id, type, suitcase_id, position) VALUES (?, ?, ?, ?)');
-        data.items.forEach(item => {
-          const position = item.position !== undefined ? item.position : 0;
-          itemStmt.run(item.id, item.type, item.suitcase_id, position);
-        });
-        itemStmt.finalize();
+          db.run('DELETE FROM suitcases', (err) => {
+            if (err) return res.status(500).json({ error: err.message });
 
-        res.json({ 
-          success: true, 
-          imported: {
-            suitcases: data.suitcases.length,
-            items: data.items.length
-          }
+            // Import suitcases
+            const suitcaseStmt = db.prepare('INSERT INTO suitcases (id, name) VALUES (?, ?)');
+            data.suitcases.forEach(suitcase => {
+              suitcaseStmt.run(suitcase.id, suitcase.name);
+            });
+            suitcaseStmt.finalize();
+
+            const importCounts = {
+              suitcases: data.suitcases.length,
+              items: data.items.length,
+              categories: 0,
+              item_types: 0
+            };
+
+            // Import categories if v2.0
+            if (isV2 && data.categories.length > 0) {
+              const categoryStmt = db.prepare('INSERT INTO categories (id, name, color) VALUES (?, ?, ?)');
+              data.categories.forEach(category => {
+                categoryStmt.run(category.id, category.name, category.color);
+              });
+              categoryStmt.finalize();
+              importCounts.categories = data.categories.length;
+            }
+
+            // Import item types if v2.0
+            if (isV2 && data.item_types.length > 0) {
+              const itemTypeStmt = db.prepare('INSERT INTO item_types (id, name, category_id) VALUES (?, ?, ?)');
+              data.item_types.forEach(itemType => {
+                itemTypeStmt.run(itemType.id, itemType.name, itemType.category_id);
+              });
+              itemTypeStmt.finalize();
+              importCounts.item_types = data.item_types.length;
+            }
+
+            // Import items (backward compatible)
+            const itemStmt = db.prepare('INSERT INTO items (id, type, suitcase_id, position) VALUES (?, ?, ?, ?)');
+            data.items.forEach(item => {
+              const position = item.position !== undefined ? item.position : 0;
+              itemStmt.run(item.id, item.type, item.suitcase_id, position);
+            });
+            itemStmt.finalize();
+
+            res.json({ 
+              success: true, 
+              imported: importCounts,
+              version: isV2 ? '2.0' : '1.0 (backward compatible)'
+            });
+          });
         });
       });
     });

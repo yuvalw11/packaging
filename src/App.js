@@ -9,30 +9,37 @@ function App() {
   const [suitcases, setSuitcases] = useState([]);
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [activeTab, setActiveTab] = useState('manage');
   
   // Form states
   const [newItemType, setNewItemType] = useState('');
   const [newItemCount, setNewItemCount] = useState(1);
+  const [newItemCategory, setNewItemCategory] = useState('');
   const [selectedSuitcase, setSelectedSuitcase] = useState('');
   const [newSuitcaseName, setNewSuitcaseName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
   const [activeSuitcaseForAdding, setActiveSuitcaseForAdding] = useState(null);
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const [editItemType, setEditItemType] = useState('');
+  const [editItemCategory, setEditItemCategory] = useState('');
   const [showEditSuggestions, setShowEditSuggestions] = useState(false);
+  const [showEditCategorySuggestions, setShowEditCategorySuggestions] = useState(false);
 
   // Get unique item types for autocomplete
   const uniqueItemTypes = [...new Set(items.map(item => item.type))].sort();
+  const uniqueCategoryNames = [...new Set(categories.map(cat => cat.name))].sort();
 
   useEffect(() => {
     fetchSuitcases();
     fetchItems();
     fetchSummary();
+    fetchCategories();
   }, []);
 
   const fetchSuitcases = async () => {
@@ -56,6 +63,12 @@ function App() {
     setSummary(data);
   };
 
+  const fetchCategories = async () => {
+    const res = await fetch(`${API_URL}/categories`);
+    const data = await res.json();
+    setCategories(data);
+  };
+
   const addItem = async (e, suitcaseId) => {
     e.preventDefault();
     if (!newItemType || !suitcaseId) return;
@@ -63,11 +76,12 @@ function App() {
     await fetch(`${API_URL}/items`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: newItemType, count: newItemCount, suitcase_id: suitcaseId })
+      body: JSON.stringify({ type: newItemType, count: newItemCount, category: newItemCategory, suitcase_id: suitcaseId })
     });
     
     setNewItemType('');
     setNewItemCount(1);
+    setNewItemCategory('');
     setShowSuggestions(false);
     fetchItems();
     fetchSummary();
@@ -146,11 +160,23 @@ function App() {
   const handleItemTypeChange = (value) => {
     setNewItemType(value);
     setShowSuggestions(value.length > 0);
+    
+    // Auto-populate category if the item type exists
+    const existingItem = items.find(item => item.type.toLowerCase() === value.toLowerCase());
+    if (existingItem && existingItem.category_name) {
+      setNewItemCategory(existingItem.category_name);
+    }
   };
 
   const selectSuggestion = (suggestion) => {
     setNewItemType(suggestion);
     setShowSuggestions(false);
+    
+    // Auto-populate category when selecting from dropdown
+    const existingItem = items.find(item => item.type === suggestion);
+    if (existingItem && existingItem.category_name) {
+      setNewItemCategory(existingItem.category_name);
+    }
   };
 
   const getFilteredSuggestions = () => {
@@ -237,34 +263,53 @@ function App() {
   const startEditingItem = (item) => {
     setEditingItem({ type: item.type, suitcase_id: item.suitcase_id });
     setEditItemType(item.type);
+    setEditItemCategory(item.category_name || '');
     setShowEditSuggestions(false);
   };
 
   const cancelEditingItem = () => {
     setEditingItem(null);
     setEditItemType('');
+    setEditItemCategory('');
     setShowEditSuggestions(false);
   };
 
-  const saveEditedItem = async (oldType, suitcaseId) => {
-    if (!editItemType || editItemType === oldType) {
+  const saveEditedItem = async (oldType, suitcaseId, oldCategory) => {
+    const typeChanged = editItemType && editItemType !== oldType;
+    const categoryChanged = editItemCategory !== (oldCategory || '');
+    
+    if (!typeChanged && !categoryChanged) {
       cancelEditingItem();
       return;
     }
 
-    await fetch(`${API_URL}/items/rename`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        oldType: oldType, 
-        newType: editItemType, 
-        suitcase_id: suitcaseId 
-      })
-    });
+    if (typeChanged) {
+      await fetch(`${API_URL}/items/rename`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          oldType: oldType, 
+          newType: editItemType
+        })
+      });
+    }
+    
+    if (categoryChanged) {
+      // Update category for the item TYPE (affects all instances across all suitcases)
+      const itemTypeToUpdate = typeChanged ? editItemType : oldType;
+      await fetch(`${API_URL}/item-types/${encodeURIComponent(itemTypeToUpdate)}/category`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          category: editItemCategory || ''
+        })
+      });
+    }
 
     cancelEditingItem();
-    fetchItems();
-    fetchSummary();
+    await fetchItems();
+    await fetchSummary();
+    await fetchCategories();
   };
 
   const handleEditItemTypeChange = (value) => {
@@ -281,6 +326,40 @@ function App() {
     if (!editItemType) return [];
     return uniqueItemTypes.filter(type => 
       type.toLowerCase().includes(editItemType.toLowerCase())
+    );
+  };
+
+  const handleCategoryChange = (value) => {
+    setNewItemCategory(value);
+    setShowCategorySuggestions(value.length > 0);
+  };
+
+  const selectCategorySuggestion = (suggestion) => {
+    setNewItemCategory(suggestion);
+    setShowCategorySuggestions(false);
+  };
+
+  const getFilteredCategorySuggestions = () => {
+    if (!newItemCategory) return uniqueCategoryNames;
+    return uniqueCategoryNames.filter(cat => 
+      cat.toLowerCase().includes(newItemCategory.toLowerCase())
+    );
+  };
+
+  const handleEditCategoryChange = (value) => {
+    setEditItemCategory(value);
+    setShowEditCategorySuggestions(true);
+  };
+
+  const selectEditCategorySuggestion = (suggestion) => {
+    setEditItemCategory(suggestion);
+    setShowEditCategorySuggestions(false);
+  };
+
+  const getFilteredEditCategorySuggestions = () => {
+    if (!editItemCategory) return uniqueCategoryNames;
+    return uniqueCategoryNames.filter(cat => 
+      cat.toLowerCase().includes(editItemCategory.toLowerCase())
     );
   };
 
@@ -478,6 +557,31 @@ function App() {
                             </div>
                           )}
                         </div>
+                        <div className="autocomplete-wrapper">
+                          <input
+                            type="text"
+                            placeholder="Category (optional)"
+                            value={newItemCategory}
+                            onChange={(e) => handleCategoryChange(e.target.value)}
+                            onFocus={() => setShowCategorySuggestions(true)}
+                            onBlur={() => setTimeout(() => setShowCategorySuggestions(false), 200)}
+                            autoComplete="off"
+                            className="category-input"
+                          />
+                          {showCategorySuggestions && getFilteredCategorySuggestions().length > 0 && (
+                            <div className="suggestions-dropdown">
+                              {getFilteredCategorySuggestions().map((suggestion, idx) => (
+                                <div 
+                                  key={idx} 
+                                  className="suggestion-item"
+                                  onClick={() => selectCategorySuggestion(suggestion)}
+                                >
+                                  {suggestion}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                         <input
                           type="number"
                           min="1"
@@ -497,6 +601,7 @@ function App() {
                             <tr>
                               <th width="40"></th>
                               <th>Item Type</th>
+                              <th>Category</th>
                               <th>Count</th>
                               <th>Action</th>
                             </tr>
@@ -532,7 +637,7 @@ function App() {
                                         onBlur={() => setTimeout(() => setShowEditSuggestions(false), 200)}
                                         onKeyDown={(e) => {
                                           if (e.key === 'Enter') {
-                                            saveEditedItem(item.type, item.suitcase_id);
+                                            saveEditedItem(item.type, item.suitcase_id, item.category);
                                           } else if (e.key === 'Escape') {
                                             cancelEditingItem();
                                           }
@@ -556,7 +661,7 @@ function App() {
                                       )}
                                     </div>
                                     <button 
-                                      onClick={() => saveEditedItem(item.type, item.suitcase_id)}
+                                      onClick={() => saveEditedItem(item.type, item.suitcase_id, item.category)}
                                       className="edit-save-btn"
                                       title="Save"
                                     >
@@ -577,6 +682,57 @@ function App() {
                                     title="Click to edit"
                                   >
                                     {item.type}
+                                  </span>
+                                )}
+                              </td>
+                              <td>
+                                {editingItem?.type === item.type && editingItem?.suitcase_id === item.suitcase_id ? (
+                                  <div className="autocomplete-wrapper">
+                                    <input
+                                      type="text"
+                                      value={editItemCategory}
+                                      onChange={(e) => handleEditCategoryChange(e.target.value)}
+                                      onFocus={() => setShowEditCategorySuggestions(true)}
+                                      onBlur={() => setTimeout(() => setShowEditCategorySuggestions(false), 200)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          saveEditedItem(item.type, item.suitcase_id, item.category_name);
+                                        } else if (e.key === 'Escape') {
+                                          cancelEditingItem();
+                                        }
+                                      }}
+                                      placeholder="Category"
+                                      autoComplete="off"
+                                      className="edit-input"
+                                    />
+                                    {showEditCategorySuggestions && getFilteredEditCategorySuggestions().length > 0 && (
+                                      <div className="suggestions-dropdown">
+                                        {getFilteredEditCategorySuggestions().map((suggestion, idx) => (
+                                          <div 
+                                            key={idx} 
+                                            className="suggestion-item"
+                                            onClick={() => selectEditCategorySuggestion(suggestion)}
+                                          >
+                                            {suggestion}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span 
+                                    onClick={() => startEditingItem(item)}
+                                    className="editable-item-name"
+                                    title="Click to edit (affects all instances of this item type)"
+                                    style={{
+                                      backgroundColor: item.category_color || 'transparent',
+                                      color: item.category_color ? '#fff' : 'inherit',
+                                      padding: item.category_color ? '4px 8px' : '0',
+                                      borderRadius: item.category_color ? '4px' : '0',
+                                      display: 'inline-block'
+                                    }}
+                                  >
+                                    {item.category_name || '-'}
                                   </span>
                                 )}
                               </td>
@@ -713,13 +869,33 @@ function App() {
               <thead>
                 <tr>
                   <th>Item Type</th>
-                  <th>Total Count</th>
+                  <th>Category</th>
+                  <th>Suitcase</th>
+                  <th>Count</th>
                 </tr>
               </thead>
               <tbody>
                 {summary.map((item, idx) => (
                   <tr key={idx}>
                     <td>{item.type}</td>
+                    <td>
+                      {item.category_name ? (
+                        <span
+                          style={{
+                            backgroundColor: item.category_color || 'transparent',
+                            color: item.category_color ? '#fff' : 'inherit',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            display: 'inline-block'
+                          }}
+                        >
+                          {item.category_name}
+                        </span>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td>{item.suitcase_name}</td>
                     <td>{item.count}</td>
                   </tr>
                 ))}
