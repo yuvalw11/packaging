@@ -35,6 +35,9 @@ function App() {
   const [showEditSuggestions, setShowEditSuggestions] = useState(false);
   const [showEditCategorySuggestions, setShowEditCategorySuggestions] = useState(false);
   
+  // Mobile item card collapse state (tracks expanded items, all others are collapsed by default)
+  const [expandedMobileItems, setExpandedMobileItems] = useState(new Set());
+  
   // Summary filtering and sorting states
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [sortBy, setSortBy] = useState('type'); // 'type', 'category', 'suitcase', 'count'
@@ -295,6 +298,19 @@ function App() {
 
   const expandAllSuitcases = () => {
     setCollapsedSuitcases(new Set());
+  };
+
+  // Mobile item card collapse toggle
+  const toggleMobileItemCollapse = (itemKey) => {
+    setExpandedMobileItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemKey)) {
+        newSet.delete(itemKey);
+      } else {
+        newSet.add(itemKey);
+      }
+      return newSet;
+    });
   };
 
   // Suitcase drag and drop handlers
@@ -820,9 +836,13 @@ function App() {
                             </tr>
                           </thead>
                           <tbody>
-                            {suitcaseItems.map((item, index) => (
+                            {suitcaseItems.map((item, index) => {
+                              const itemKey = `${item.type}-${item.suitcase_id}`;
+                              const isItemCollapsed = !expandedMobileItems.has(itemKey);
+                              
+                              return (
                             <tr 
-                              key={`${item.type}-${item.suitcase_id}`}
+                              key={itemKey}
                               draggable
                               onDragStart={(e) => handleDragStart(e, item, index, suitcase.id)}
                               onDragOver={(e) => handleDragOver(e, index, suitcase.id)}
@@ -833,7 +853,15 @@ function App() {
                                 draggable-row
                                 ${draggedItem?.index === index && draggedItem?.suitcaseId === suitcase.id ? 'dragging' : ''}
                                 ${dragOverIndex === index && draggedItem?.suitcaseId === suitcase.id ? 'drag-over' : ''}
+                                ${isItemCollapsed ? 'mobile-collapsed' : ''}
                               `}
+                              data-mobile-summary={`${item.type} • ${item.category_name || 'No category'} • ${item.count}x`}
+                              onClick={(e) => {
+                                // Only toggle on mobile when clicking the card itself
+                                if (window.innerWidth <= 768 && !e.target.closest('button, select, input')) {
+                                  toggleMobileItemCollapse(itemKey);
+                                }
+                              }}
                             >
                               <td className="drag-handle">
                                 <span className="drag-icon">⋮⋮</span>
@@ -1016,7 +1044,8 @@ function App() {
                                 </div>
                               </td>
                             </tr>
-                          ))}
+                              );
+                            })}
                           </tbody>
                         </table>
                         <div 

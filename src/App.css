@@ -855,6 +855,19 @@ tr:hover {
     flex-direction: column;
   }
 
+  button {
+    height: 60px;
+  }
+
+  .move-select {
+    height: 60px;
+  }
+
+  .import-btn{
+    height: 60px;
+    align-content: center;
+  }
+
   .autocomplete-wrapper {
     min-width: 100%;
   }
@@ -1002,5 +1015,47 @@ tr:hover {
   .editable-item-name {
     min-width: auto;
     max-width: 100%;
+  }
+
+  /* Mobile collapsible item cards */
+  .items-table tr.mobile-collapsed {
+    cursor: pointer;
+    position: relative;
+    padding: 0.75rem 1rem;
+    min-height: auto;
+  }
+
+  .items-table tr.mobile-collapsed::before {
+    content: attr(data-mobile-summary);
+    display: block;
+    font-weight: 500;
+    color: #2c3e50;
+    font-size: 0.95rem;
+    padding-right: 1.5rem;
+  }
+
+  .items-table tr.mobile-collapsed::after {
+    content: '▼';
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #3498db;
+    font-size: 0.8rem;
+  }
+
+  .items-table tr.mobile-collapsed td {
+    display: none !important;
+  }
+
+  /* When not collapsed, show expand indicator */
+  .items-table tr:not(.mobile-collapsed)::after {
+    content: '▲';
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    color: #3498db;
+    font-size: 0.8rem;
+    cursor: pointer;
   }
 }
