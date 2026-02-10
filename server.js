@@ -119,6 +119,20 @@ async function ensureCategoryExists(categoryName) {
   });
 }
 
+// Helper function to clean up unused categories
+async function cleanupUnusedCategories() {
+  return new Promise((resolve, reject) => {
+    db.run(
+      `DELETE FROM categories 
+       WHERE id NOT IN (SELECT DISTINCT category_id FROM item_types WHERE category_id IS NOT NULL)`,
+      (err) => {
+        if (err) return reject(err);
+        resolve();
+      }
+    );
+  });
+}
+
 db.serialize(() => {
   // Create tables
   db.run(`CREATE TABLE IF NOT EXISTS suitcases (
@@ -304,6 +318,8 @@ app.patch('/api/item-types/:name/category', async (req, res) => {
   
   try {
     await ensureItemTypeExists(name, category);
+    // Clean up any categories that are no longer used
+    await cleanupUnusedCategories();
     res.json({ success: true, itemType: name, category });
   } catch (error) {
     res.status(500).json({ error: error.message });
