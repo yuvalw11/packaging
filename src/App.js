@@ -25,7 +25,8 @@ function App() {
   const [activeSuitcaseForAdding, setActiveSuitcaseForAdding] = useState(null);
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
-  const [editingItem, setEditingItem] = useState(null);
+  const [editingType, setEditingType] = useState(null); // { type, suitcase_id }
+  const [editingCategory, setEditingCategory] = useState(null); // { type, suitcase_id }
   const [editItemType, setEditItemType] = useState('');
   const [editItemCategory, setEditItemCategory] = useState('');
   const [showEditSuggestions, setShowEditSuggestions] = useState(false);
@@ -260,53 +261,58 @@ function App() {
     setDragOverIndex(null);
   };
 
-  const startEditingItem = (item) => {
-    setEditingItem({ type: item.type, suitcase_id: item.suitcase_id });
+  const startEditingType = (item) => {
+    setEditingType({ type: item.type, suitcase_id: item.suitcase_id });
     setEditItemType(item.type);
+    setShowEditSuggestions(false);
+  };
+
+  const startEditingCategory = (item) => {
+    setEditingCategory({ type: item.type, suitcase_id: item.suitcase_id });
     setEditItemCategory(item.category_name || '');
-    setShowEditSuggestions(false);
+    setShowEditCategorySuggestions(false);
   };
 
-  const cancelEditingItem = () => {
-    setEditingItem(null);
-    setEditItemType('');
-    setEditItemCategory('');
-    setShowEditSuggestions(false);
-  };
-
-  const saveEditedItem = async (oldType, suitcaseId, oldCategory) => {
-    const typeChanged = editItemType && editItemType !== oldType;
-    const categoryChanged = editItemCategory !== (oldCategory || '');
-    
-    if (!typeChanged && !categoryChanged) {
-      cancelEditingItem();
+  const saveItemType = async (oldType) => {
+    if (!editItemType || editItemType === oldType) {
+      setEditingType(null);
+      setEditItemType('');
       return;
     }
 
-    if (typeChanged) {
-      await fetch(`${API_URL}/items/rename`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          oldType: oldType, 
-          newType: editItemType
-        })
-      });
-    }
-    
-    if (categoryChanged) {
-      // Update category for the item TYPE (affects all instances across all suitcases)
-      const itemTypeToUpdate = typeChanged ? editItemType : oldType;
-      await fetch(`${API_URL}/item-types/${encodeURIComponent(itemTypeToUpdate)}/category`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          category: editItemCategory || ''
-        })
-      });
+    await fetch(`${API_URL}/items/rename`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        oldType: oldType, 
+        newType: editItemType
+      })
+    });
+
+    setEditingType(null);
+    setEditItemType('');
+    await fetchItems();
+    await fetchSummary();
+    await fetchCategories();
+  };
+
+  const saveItemCategory = async (itemType, oldCategory) => {
+    if (editItemCategory === (oldCategory || '')) {
+      setEditingCategory(null);
+      setEditItemCategory('');
+      return;
     }
 
-    cancelEditingItem();
+    await fetch(`${API_URL}/item-types/${encodeURIComponent(itemType)}/category`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        category: editItemCategory || ''
+      })
+    });
+
+    setEditingCategory(null);
+    setEditItemCategory('');
     await fetchItems();
     await fetchSummary();
     await fetchCategories();
@@ -626,92 +632,39 @@ function App() {
                                 <span className="drag-icon">⋮⋮</span>
                               </td>
                               <td>
-                                {editingItem?.type === item.type && editingItem?.suitcase_id === item.suitcase_id ? (
-                                  <div className="edit-item-wrapper">
-                                    <div className="autocomplete-wrapper">
-                                      <input
-                                        type="text"
-                                        value={editItemType}
-                                        onChange={(e) => handleEditItemTypeChange(e.target.value)}
-                                        onFocus={() => setShowEditSuggestions(editItemType.length > 0)}
-                                        onBlur={() => setTimeout(() => setShowEditSuggestions(false), 200)}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') {
-                                            saveEditedItem(item.type, item.suitcase_id, item.category);
-                                          } else if (e.key === 'Escape') {
-                                            cancelEditingItem();
-                                          }
-                                        }}
-                                        autoComplete="off"
-                                        autoFocus
-                                        className="edit-input"
-                                      />
-                                      {showEditSuggestions && getFilteredEditSuggestions().length > 0 && (
-                                        <div className="suggestions-dropdown">
-                                          {getFilteredEditSuggestions().map((suggestion, idx) => (
-                                            <div 
-                                              key={idx} 
-                                              className="suggestion-item"
-                                              onClick={() => selectEditSuggestion(suggestion)}
-                                            >
-                                              {suggestion}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                    <button 
-                                      onClick={() => saveEditedItem(item.type, item.suitcase_id, item.category)}
-                                      className="edit-save-btn"
-                                      title="Save"
-                                    >
-                                      ✓
-                                    </button>
-                                    <button 
-                                      onClick={cancelEditingItem}
-                                      className="edit-cancel-btn"
-                                      title="Cancel"
-                                    >
-                                      ✕
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <span 
-                                    onClick={() => startEditingItem(item)}
-                                    className="editable-item-name"
-                                    title="Click to edit"
-                                  >
-                                    {item.type}
-                                  </span>
-                                )}
-                              </td>
-                              <td>
-                                {editingItem?.type === item.type && editingItem?.suitcase_id === item.suitcase_id ? (
+                                {editingType?.type === item.type && editingType?.suitcase_id === item.suitcase_id ? (
                                   <div className="autocomplete-wrapper">
                                     <input
                                       type="text"
-                                      value={editItemCategory}
-                                      onChange={(e) => handleEditCategoryChange(e.target.value)}
-                                      onFocus={() => setShowEditCategorySuggestions(true)}
-                                      onBlur={() => setTimeout(() => setShowEditCategorySuggestions(false), 200)}
+                                      value={editItemType}
+                                      onChange={(e) => handleEditItemTypeChange(e.target.value)}
+                                      onFocus={() => setShowEditSuggestions(editItemType.length > 0)}
+                                      onBlur={() => {
+                                        setTimeout(() => setShowEditSuggestions(false), 200);
+                                        setTimeout(() => saveItemType(item.type), 250);
+                                      }}
                                       onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
-                                          saveEditedItem(item.type, item.suitcase_id, item.category_name);
+                                          e.target.blur();
                                         } else if (e.key === 'Escape') {
-                                          cancelEditingItem();
+                                          setEditingType(null);
+                                          setEditItemType('');
                                         }
                                       }}
-                                      placeholder="Category"
                                       autoComplete="off"
+                                      autoFocus
                                       className="edit-input"
                                     />
-                                    {showEditCategorySuggestions && getFilteredEditCategorySuggestions().length > 0 && (
+                                    {showEditSuggestions && getFilteredEditSuggestions().length > 0 && (
                                       <div className="suggestions-dropdown">
-                                        {getFilteredEditCategorySuggestions().map((suggestion, idx) => (
+                                        {getFilteredEditSuggestions().map((suggestion, idx) => (
                                           <div 
                                             key={idx} 
                                             className="suggestion-item"
-                                            onClick={() => selectEditCategorySuggestion(suggestion)}
+                                            onClick={() => {
+                                              setEditItemType(suggestion);
+                                              setShowEditSuggestions(false);
+                                            }}
                                           >
                                             {suggestion}
                                           </div>
@@ -721,7 +674,59 @@ function App() {
                                   </div>
                                 ) : (
                                   <span 
-                                    onClick={() => startEditingItem(item)}
+                                    onClick={() => startEditingType(item)}
+                                    className="editable-item-name"
+                                    title="Click to edit"
+                                  >
+                                    {item.type}
+                                  </span>
+                                )}
+                              </td>
+                              <td>
+                                {editingCategory?.type === item.type && editingCategory?.suitcase_id === item.suitcase_id ? (
+                                  <div className="autocomplete-wrapper">
+                                    <input
+                                      type="text"
+                                      value={editItemCategory}
+                                      onChange={(e) => handleEditCategoryChange(e.target.value)}
+                                      onFocus={() => setShowEditCategorySuggestions(true)}
+                                      onBlur={() => {
+                                        setTimeout(() => setShowEditCategorySuggestions(false), 200);
+                                        setTimeout(() => saveItemCategory(item.type, item.category_name), 250);
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.target.blur();
+                                        } else if (e.key === 'Escape') {
+                                          setEditingCategory(null);
+                                          setEditItemCategory('');
+                                        }
+                                      }}
+                                      placeholder="Category"
+                                      autoComplete="off"
+                                      autoFocus
+                                      className="edit-input"
+                                    />
+                                    {showEditCategorySuggestions && getFilteredEditCategorySuggestions().length > 0 && (
+                                      <div className="suggestions-dropdown">
+                                        {getFilteredEditCategorySuggestions().map((suggestion, idx) => (
+                                          <div 
+                                            key={idx} 
+                                            className="suggestion-item"
+                                            onClick={() => {
+                                              setEditItemCategory(suggestion);
+                                              setShowEditCategorySuggestions(false);
+                                            }}
+                                          >
+                                            {suggestion}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span 
+                                    onClick={() => startEditingCategory(item)}
                                     className="editable-item-name"
                                     title="Click to edit (affects all instances of this item type)"
                                     style={{
