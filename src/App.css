@@ -234,12 +234,150 @@ tr:hover {
   padding: 1.5rem;
   margin-bottom: 1.5rem;
   border: 1px solid #e0e0e0;
+  cursor: move;
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.suitcase-card:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  border-color: #cbd5e0;
 }
 
 .suitcase-card h3 {
   margin: 0;
   color: #2c3e50;
   font-size: 1.2rem;
+}
+
+.suitcase-card.dragging-suitcase {
+  opacity: 0.5;
+  background: #e3f2fd;
+  border: 2px dashed #3498db;
+}
+
+/* Only apply rotation to the suitcase card itself, not when dragging items */
+.suitcase-card.dragging-suitcase:not(:has(.draggable-row.dragging)) {
+  transform: rotate(2deg);
+}
+
+.suitcase-card.drag-over-suitcase {
+  border-top: 4px solid #3498db;
+  background: #f0f7ff;
+  box-shadow: 0 6px 12px rgba(52, 152, 219, 0.3);
+}
+
+.suitcase-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.suitcase-drag-handle {
+  color: #999;
+  font-size: 1.2rem;
+  line-height: 1;
+  letter-spacing: -2px;
+  cursor: grab;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.suitcase-drag-handle:hover {
+  color: #3498db;
+  background: rgba(52, 152, 219, 0.1);
+}
+
+.suitcase-drag-handle:active {
+  cursor: grabbing;
+}
+
+.collapse-btn {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+  margin-left: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+}
+
+.collapse-btn:hover {
+  background: rgba(52, 152, 219, 0.1);
+  color: #3498db;
+}
+
+.collapse-btn:active {
+  transform: scale(0.95);
+}
+
+.suitcases-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.suitcases-header h2 {
+  margin: 0;
+}
+
+.collapse-all-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.collapse-all-btn,
+.expand-all-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.collapse-all-btn {
+  background: #e8f4f8;
+  color: #2980b9;
+  border: 1px solid #3498db;
+}
+
+.collapse-all-btn:hover {
+  background: #d1ebf5;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2);
+}
+
+.expand-all-btn {
+  background: #f0f7ff;
+  color: #2980b9;
+  border: 1px solid #3498db;
+}
+
+.expand-all-btn:hover {
+  background: #e3f2fd;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2);
+}
+
+.collapse-all-btn:active,
+.expand-all-btn:active {
+  transform: translateY(0);
 }
 
 .suitcase-actions {
@@ -696,6 +834,20 @@ tr:hover {
 
   .add-item-form {
     flex-direction: column;
+  }
+
+  .suitcases-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .collapse-all-controls {
+    width: 100%;
+  }
+
+  .collapse-all-btn,
+  .expand-all-btn {
+    flex: 1;
   }
 
   .suitcase-header {

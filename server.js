@@ -137,7 +137,8 @@ db.serialize(() => {
   // Create tables
   db.run(`CREATE TABLE IF NOT EXISTS suitcases (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL
+    name TEXT NOT NULL,
+    position INTEGER DEFAULT 0
   )`);
 
   db.run(`CREATE TABLE IF NOT EXISTS categories (
@@ -179,7 +180,7 @@ db.serialize(() => {
 
 // Get all suitcases
 app.get('/api/suitcases', (req, res) => {
-  db.all('SELECT * FROM suitcases', (err, rows) => {
+  db.all('SELECT * FROM suitcases ORDER BY position, id', (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
@@ -188,10 +189,44 @@ app.get('/api/suitcases', (req, res) => {
 // Add suitcase
 app.post('/api/suitcases', (req, res) => {
   const { name } = req.body;
-  db.run('INSERT INTO suitcases (name) VALUES (?)', [name], function(err) {
+  
+  // Get the max position
+  db.get('SELECT COALESCE(MAX(position), -1) as maxPos FROM suitcases', (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json({ id: this.lastID, name });
+    
+    const newPosition = row.maxPos + 1;
+    
+    db.run('INSERT INTO suitcases (name, position) VALUES (?, ?)', [name, newPosition], function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID, name, position: newPosition });
+    });
   });
+});
+
+// Reorder suitcases
+app.post('/api/suitcases/reorder', (req, res) => {
+  const { suitcases } = req.body; // Array of { id, position }
+  
+  if (!suitcases || suitcases.length === 0) {
+    return res.status(400).json({ error: 'No suitcases to reorder' });
+  }
+  
+  const promises = suitcases.map(({ id, position }) => {
+    return new Promise((resolve, reject) => {
+      db.run(
+        'UPDATE suitcases SET position = ? WHERE id = ?',
+        [position, id],
+        function(err) {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+  });
+  
+  Promise.all(promises)
+    .then(() => res.json({ updated: suitcases.length }))
+    .catch(err => res.status(500).json({ error: err.message }));
 });
 
 // Get all items (grouped by type and suitcase with counts)
@@ -561,9 +596,10 @@ app.post('/api/import', (req, res) => {
             if (err) return res.status(500).json({ error: err.message });
 
             // Import suitcases
-            const suitcaseStmt = db.prepare('INSERT INTO suitcases (id, name) VALUES (?, ?)');
+            const suitcaseStmt = db.prepare('INSERT INTO suitcases (id, name, position) VALUES (?, ?, ?)');
             data.suitcases.forEach(suitcase => {
-              suitcaseStmt.run(suitcase.id, suitcase.name);
+              const position = suitcase.position !== undefined ? suitcase.position : 0;
+              suitcaseStmt.run(suitcase.id, suitcase.name, position);
             });
             suitcaseStmt.finalize();
 

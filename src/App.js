@@ -25,6 +25,9 @@ function App() {
   const [activeSuitcaseForAdding, setActiveSuitcaseForAdding] = useState(null);
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [draggedSuitcase, setDraggedSuitcase] = useState(null);
+  const [dragOverSuitcaseIndex, setDragOverSuitcaseIndex] = useState(null);
+  const [collapsedSuitcases, setCollapsedSuitcases] = useState(new Set());
   const [editingType, setEditingType] = useState(null); // { type, suitcase_id }
   const [editingCategory, setEditingCategory] = useState(null); // { type, suitcase_id }
   const [editItemType, setEditItemType] = useState('');
@@ -197,6 +200,7 @@ function App() {
   };
 
   const handleDragStart = (e, item, index, suitcaseId) => {
+    e.stopPropagation(); // Prevent suitcase drag from triggering
     setDraggedItem({ item, index, suitcaseId });
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -265,9 +269,89 @@ function App() {
     await fetchItems();
   };
 
-  const handleDragEnd = () => {
+  const handleDragEnd = (e) => {
+    e.stopPropagation(); // Prevent suitcase drag from triggering
     setDraggedItem(null);
     setDragOverIndex(null);
+  };
+
+  // Suitcase collapse/expand handlers
+  const toggleSuitcaseCollapse = (suitcaseId) => {
+    setCollapsedSuitcases(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(suitcaseId)) {
+        newSet.delete(suitcaseId);
+      } else {
+        newSet.add(suitcaseId);
+      }
+      return newSet;
+    });
+  };
+
+  const collapseAllSuitcases = () => {
+    const allSuitcaseIds = new Set(suitcases.map(s => s.id));
+    setCollapsedSuitcases(allSuitcaseIds);
+  };
+
+  const expandAllSuitcases = () => {
+    setCollapsedSuitcases(new Set());
+  };
+
+  // Suitcase drag and drop handlers
+  const handleSuitcaseDragStart = (e, suitcase, index) => {
+    setDraggedSuitcase({ suitcase, index });
+    e.dataTransfer.effectAllowed = 'move';
+    
+    // Collapse all suitcases when starting to drag
+    const allSuitcaseIds = new Set(suitcases.map(s => s.id));
+    setCollapsedSuitcases(allSuitcaseIds);
+  };
+
+  const handleSuitcaseDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverSuitcaseIndex(index);
+  };
+
+  const handleSuitcaseDragLeave = () => {
+    setDragOverSuitcaseIndex(null);
+  };
+
+  const handleSuitcaseDrop = async (e, dropIndex) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!draggedSuitcase || draggedSuitcase.index === dropIndex) {
+      setDraggedSuitcase(null);
+      setDragOverSuitcaseIndex(null);
+      return;
+    }
+    
+    // Reorder suitcases array
+    const newSuitcases = [...suitcases];
+    const [movedSuitcase] = newSuitcases.splice(draggedSuitcase.index, 1);
+    newSuitcases.splice(dropIndex, 0, movedSuitcase);
+    
+    // Update positions
+    const updates = newSuitcases.map((suitcase, index) => ({
+      id: suitcase.id,
+      position: index
+    }));
+    
+    await fetch(`${API_URL}/suitcases/reorder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ suitcases: updates })
+    });
+    
+    setDraggedSuitcase(null);
+    setDragOverSuitcaseIndex(null);
+    await fetchSuitcases();
+  };
+
+  const handleSuitcaseDragEnd = () => {
+    setDraggedSuitcase(null);
+    setDragOverSuitcaseIndex(null);
   };
 
   const startEditingType = (item) => {
@@ -579,27 +663,80 @@ function App() {
               <button type="submit">Add Suitcase</button>
             </form>
 
-            <h2>Your Suitcases</h2>
+            <div className="suitcases-header">
+              <h2>Your Suitcases</h2>
+              {suitcases.length > 0 && (
+                <div className="collapse-all-controls">
+                  <button 
+                    onClick={collapseAllSuitcases}
+                    className="collapse-all-btn"
+                    title="Collapse all suitcases"
+                  >
+                    ▲ Collapse All
+                  </button>
+                  <button 
+                    onClick={expandAllSuitcases}
+                    className="expand-all-btn"
+                    title="Expand all suitcases"
+                  >
+                    ▼ Expand All
+                  </button>
+                </div>
+              )}
+            </div>
             {suitcases.length === 0 ? (
               <p className="empty-message">No suitcases yet. Add one above to get started!</p>
             ) : (
-              suitcases.map(suitcase => {
+              suitcases.map((suitcase, index) => {
                 const suitcaseItems = items.filter(item => item.suitcase_id === suitcase.id);
                 const isAdding = activeSuitcaseForAdding === suitcase.id;
+                const isCollapsed = collapsedSuitcases.has(suitcase.id);
                 
                 return (
-                  <div key={suitcase.id} className="suitcase-card">
+                  <div 
+                    key={suitcase.id} 
+                    className={`suitcase-card ${
+                      draggedSuitcase?.index === index ? 'dragging-suitcase' : ''
+                    } ${
+                      dragOverSuitcaseIndex === index && draggedSuitcase?.index !== index ? 'drag-over-suitcase' : ''
+                    }`}
+                    draggable
+                    onDragStart={(e) => handleSuitcaseDragStart(e, suitcase, index)}
+                    onDragOver={(e) => handleSuitcaseDragOver(e, index)}
+                    onDragLeave={handleSuitcaseDragLeave}
+                    onDrop={(e) => handleSuitcaseDrop(e, index)}
+                    onDragEnd={handleSuitcaseDragEnd}
+                  >
                     <div className="suitcase-header">
-                      <h3>{suitcase.name}</h3>
+                      <div className="suitcase-title">
+                        <span className="suitcase-drag-handle">⋮⋮</span>
+                        <h3>{suitcase.name}</h3>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSuitcaseCollapse(suitcase.id);
+                          }}
+                          className="collapse-btn"
+                          title={isCollapsed ? 'Expand' : 'Collapse'}
+                        >
+                          {isCollapsed ? '▼' : '▲'}
+                        </button>
+                      </div>
                       <div className="suitcase-actions">
                         <button 
-                          onClick={() => setActiveSuitcaseForAdding(isAdding ? null : suitcase.id)} 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveSuitcaseForAdding(isAdding ? null : suitcase.id);
+                          }} 
                           className="add-item-btn"
                         >
                           {isAdding ? 'Close' : '+ Add Item'}
                         </button>
                         <button 
-                          onClick={() => deleteSuitcase(suitcase.id)} 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteSuitcase(suitcase.id);
+                          }} 
                           className="delete-btn"
                         >
                           Delete
@@ -607,7 +744,7 @@ function App() {
                       </div>
                     </div>
 
-                    {isAdding && (
+                    {!isCollapsed && isAdding && (
                       <form onSubmit={(e) => addItem(e, suitcase.id)} className="add-item-form">
                         <div className="autocomplete-wrapper">
                           <input
@@ -670,7 +807,7 @@ function App() {
                       </form>
                     )}
 
-                    {suitcaseItems.length > 0 ? (
+                    {!isCollapsed && suitcaseItems.length > 0 ? (
                       <div>
                         <table className="items-table">
                           <thead>
@@ -893,7 +1030,7 @@ function App() {
                           {draggedItem && draggedItem.suitcaseId !== suitcase.id && <span className="drop-hint">Drop here to add to end</span>}
                         </div>
                       </div>
-                    ) : (
+                    ) : !isCollapsed && suitcaseItems.length === 0 ? (
                       <div 
                         className={`empty-items ${draggedItem ? 'drop-zone-active' : ''}`}
                         onDragOver={(e) => {
@@ -904,7 +1041,7 @@ function App() {
                       >
                         No items in this suitcase yet. {draggedItem && <span className="drop-hint">Drop item here to add it</span>}
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 );
               })
