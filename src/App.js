@@ -32,6 +32,10 @@ function App() {
   const [showEditSuggestions, setShowEditSuggestions] = useState(false);
   const [showEditCategorySuggestions, setShowEditCategorySuggestions] = useState(false);
 
+  // Refs to track if we're selecting from dropdown (to prevent blur from saving)
+  const selectingFromTypeDropdown = React.useRef(false);
+  const selectingFromCategoryDropdown = React.useRef(false);
+
   // Get unique item types for autocomplete
   const uniqueItemTypes = [...new Set(items.map(item => item.type))].sort();
   const uniqueCategoryNames = [...new Set(categories.map(cat => cat.name))].sort();
@@ -273,8 +277,10 @@ function App() {
     setShowEditCategorySuggestions(false);
   };
 
-  const saveItemType = async (oldType) => {
-    if (!editItemType || editItemType === oldType) {
+  const saveItemType = async (oldType, newTypeOverride = null) => {
+    const newType = newTypeOverride || editItemType;
+    
+    if (!newType || newType === oldType) {
       setEditingType(null);
       setEditItemType('');
       return;
@@ -285,7 +291,7 @@ function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         oldType: oldType, 
-        newType: editItemType
+        newType: newType
       })
     });
 
@@ -296,8 +302,10 @@ function App() {
     await fetchCategories();
   };
 
-  const saveItemCategory = async (itemType, oldCategory) => {
-    if (editItemCategory === (oldCategory || '')) {
+  const saveItemCategory = async (itemType, oldCategory, newCategoryOverride = null) => {
+    const newCategory = newCategoryOverride !== null ? newCategoryOverride : editItemCategory;
+    
+    if (newCategory === (oldCategory || '')) {
       setEditingCategory(null);
       setEditItemCategory('');
       return;
@@ -307,7 +315,7 @@ function App() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        category: editItemCategory || ''
+        category: newCategory || ''
       })
     });
 
@@ -640,13 +648,18 @@ function App() {
                                       onChange={(e) => handleEditItemTypeChange(e.target.value)}
                                       onFocus={() => setShowEditSuggestions(editItemType.length > 0)}
                                       onBlur={() => {
-                                        setTimeout(() => setShowEditSuggestions(false), 200);
-                                        setTimeout(() => saveItemType(item.type), 250);
+                                        // Only save if we're not selecting from dropdown
+                                        if (!selectingFromTypeDropdown.current) {
+                                          setShowEditSuggestions(false);
+                                          saveItemType(item.type);
+                                        }
                                       }}
                                       onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
-                                          e.target.blur();
+                                          selectingFromTypeDropdown.current = false;
+                                          saveItemType(item.type);
                                         } else if (e.key === 'Escape') {
+                                          selectingFromTypeDropdown.current = false;
                                           setEditingType(null);
                                           setEditItemType('');
                                         }
@@ -661,9 +674,14 @@ function App() {
                                           <div 
                                             key={idx} 
                                             className="suggestion-item"
-                                            onClick={() => {
+                                            onMouseDown={() => {
+                                              selectingFromTypeDropdown.current = true;
                                               setEditItemType(suggestion);
                                               setShowEditSuggestions(false);
+                                              saveItemType(item.type, suggestion);
+                                            }}
+                                            onMouseUp={() => {
+                                              selectingFromTypeDropdown.current = false;
                                             }}
                                           >
                                             {suggestion}
@@ -691,13 +709,18 @@ function App() {
                                       onChange={(e) => handleEditCategoryChange(e.target.value)}
                                       onFocus={() => setShowEditCategorySuggestions(true)}
                                       onBlur={() => {
-                                        setTimeout(() => setShowEditCategorySuggestions(false), 200);
-                                        setTimeout(() => saveItemCategory(item.type, item.category_name), 250);
+                                        // Only save if we're not selecting from dropdown
+                                        if (!selectingFromCategoryDropdown.current) {
+                                          setShowEditCategorySuggestions(false);
+                                          saveItemCategory(item.type, item.category_name);
+                                        }
                                       }}
                                       onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
-                                          e.target.blur();
+                                          selectingFromCategoryDropdown.current = false;
+                                          saveItemCategory(item.type, item.category_name);
                                         } else if (e.key === 'Escape') {
+                                          selectingFromCategoryDropdown.current = false;
                                           setEditingCategory(null);
                                           setEditItemCategory('');
                                         }
@@ -713,9 +736,14 @@ function App() {
                                           <div 
                                             key={idx} 
                                             className="suggestion-item"
-                                            onClick={() => {
+                                            onMouseDown={() => {
+                                              selectingFromCategoryDropdown.current = true;
                                               setEditItemCategory(suggestion);
                                               setShowEditCategorySuggestions(false);
+                                              saveItemCategory(item.type, item.category_name, suggestion);
+                                            }}
+                                            onMouseUp={() => {
+                                              selectingFromCategoryDropdown.current = false;
                                             }}
                                           >
                                             {suggestion}
