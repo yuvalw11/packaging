@@ -31,6 +31,11 @@ function App() {
   const [editItemCategory, setEditItemCategory] = useState('');
   const [showEditSuggestions, setShowEditSuggestions] = useState(false);
   const [showEditCategorySuggestions, setShowEditCategorySuggestions] = useState(false);
+  
+  // Summary filtering and sorting states
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('type'); // 'type', 'category', 'suitcase', 'count'
+  const [sortOrder, setSortOrder] = useState('asc'); // 'asc' or 'desc'
 
   // Refs to track if we're selecting from dropdown (to prevent blur from saving)
   const selectingFromTypeDropdown = React.useRef(false);
@@ -449,6 +454,63 @@ function App() {
     }
     
     event.target.value = '';
+  };
+
+  // Filter and sort summary data
+  const getFilteredAndSortedSummary = () => {
+    let filtered = [...summary];
+    
+    // Apply category filter
+    if (categoryFilter !== 'all') {
+      if (categoryFilter === 'none') {
+        filtered = filtered.filter(item => !item.category_name);
+      } else {
+        filtered = filtered.filter(item => item.category_name === categoryFilter);
+      }
+    }
+    
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let compareA, compareB;
+      
+      switch (sortBy) {
+        case 'type':
+          compareA = a.type.toLowerCase();
+          compareB = b.type.toLowerCase();
+          break;
+        case 'category':
+          compareA = (a.category_name || '').toLowerCase();
+          compareB = (b.category_name || '').toLowerCase();
+          break;
+        case 'suitcase':
+          compareA = a.suitcase_name.toLowerCase();
+          compareB = b.suitcase_name.toLowerCase();
+          break;
+        case 'count':
+          compareA = a.count;
+          compareB = b.count;
+          break;
+        default:
+          return 0;
+      }
+      
+      if (compareA < compareB) return sortOrder === 'asc' ? -1 : 1;
+      if (compareA > compareB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+    
+    return filtered;
+  };
+
+  const handleSortClick = (column) => {
+    if (sortBy === column) {
+      // Toggle sort order if clicking the same column
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Set new column and default to ascending
+      setSortBy(column);
+      setSortOrder('asc');
+    }
   };
 
   const groupedBySuitcase = items.reduce((acc, item) => {
@@ -898,17 +960,60 @@ function App() {
         {activeTab === 'summary' && (
           <div className="section">
             <h2>Item Type Summary</h2>
-            <table>
+            
+            <div className="summary-controls">
+              <div className="filter-group">
+                <label htmlFor="category-filter">Filter by Category:</label>
+                <select 
+                  id="category-filter"
+                  value={categoryFilter} 
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="category-filter-select"
+                >
+                  <option value="all">All Categories</option>
+                  <option value="none">No Category</option>
+                  {uniqueCategoryNames.map((cat, idx) => (
+                    <option key={idx} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="summary-info">
+                Showing {getFilteredAndSortedSummary().length} of {summary.length} items
+              </div>
+            </div>
+
+            <table className="summary-table">
               <thead>
                 <tr>
-                  <th>Item Type</th>
-                  <th>Category</th>
-                  <th>Suitcase</th>
-                  <th>Count</th>
+                  <th 
+                    onClick={() => handleSortClick('type')}
+                    className={`sortable ${sortBy === 'type' ? 'sorted' : ''}`}
+                  >
+                    Item Type {sortBy === 'type' && (sortOrder === 'asc' ? '▲' : '▼')}
+                  </th>
+                  <th 
+                    onClick={() => handleSortClick('category')}
+                    className={`sortable ${sortBy === 'category' ? 'sorted' : ''}`}
+                  >
+                    Category {sortBy === 'category' && (sortOrder === 'asc' ? '▲' : '▼')}
+                  </th>
+                  <th 
+                    onClick={() => handleSortClick('suitcase')}
+                    className={`sortable ${sortBy === 'suitcase' ? 'sorted' : ''}`}
+                  >
+                    Suitcase {sortBy === 'suitcase' && (sortOrder === 'asc' ? '▲' : '▼')}
+                  </th>
+                  <th 
+                    onClick={() => handleSortClick('count')}
+                    className={`sortable ${sortBy === 'count' ? 'sorted' : ''}`}
+                  >
+                    Count {sortBy === 'count' && (sortOrder === 'asc' ? '▲' : '▼')}
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {summary.map((item, idx) => (
+                {getFilteredAndSortedSummary().map((item, idx) => (
                   <tr key={idx}>
                     <td>{item.type}</td>
                     <td>
