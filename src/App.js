@@ -857,8 +857,8 @@ function App() {
                               `}
                               data-mobile-summary={`${item.type} • ${item.category_name || 'No category'} • ${item.count}x`}
                               onClick={(e) => {
-                                // Only toggle on mobile when clicking the card itself
-                                if (window.innerWidth <= 768 && !e.target.closest('button, select, input')) {
+                                // Only toggle on mobile when clicking the card itself (not buttons, inputs, or editable fields)
+                                if (window.innerWidth <= 768 && !e.target.closest('button, select, input, .editable-item-name')) {
                                   toggleMobileItemCollapse(itemKey);
                                 }
                               }}
