@@ -1157,6 +1157,28 @@ function App() {
                   ))}
                 </select>
               </div>
+
+              <div className="sort-group">
+                <label htmlFor="sort-by">Sort by:</label>
+                <select 
+                  id="sort-by"
+                  value={sortBy} 
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="sort-select"
+                >
+                  <option value="type">Item Type</option>
+                  <option value="category">Category</option>
+                  <option value="suitcase">Suitcase</option>
+                  <option value="count">Count</option>
+                </select>
+                <button 
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                  className="sort-order-btn"
+                  title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                >
+                  {sortOrder === 'asc' ? '↑' : '↓'}
+                </button>
+              </div>
               
               <div className="summary-info">
                 Showing {getFilteredAndSortedSummary().length} of {summary.length} items

@@ -747,20 +747,23 @@ tr:hover {
   gap: 1rem;
 }
 
-.filter-group {
+.filter-group,
+.sort-group {
   display: flex;
   align-items: center;
   gap: 0.75rem;
 }
 
-.filter-group label {
+.filter-group label,
+.sort-group label {
   font-weight: 600;
   color: #2c3e50;
   font-size: 0.95rem;
   white-space: nowrap;
 }
 
-.category-filter-select {
+.category-filter-select,
+.sort-select {
   padding: 0.5rem 1rem;
   border: 2px solid #ddd;
   border-radius: 6px;
@@ -769,18 +772,50 @@ tr:hover {
   font-size: 0.95rem;
   cursor: pointer;
   transition: all 0.3s;
+  min-width: 150px;
+}
+
+.category-filter-select {
   min-width: 200px;
 }
 
-.category-filter-select:hover {
+.category-filter-select:hover,
+.sort-select:hover {
   border-color: #3498db;
   background: #f0f7ff;
 }
 
-.category-filter-select:focus {
+.category-filter-select:focus,
+.sort-select:focus {
   outline: none;
   border-color: #3498db;
   box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.sort-order-btn {
+  padding: 0.5rem 0.75rem;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  font-weight: bold;
+  transition: all 0.3s;
+  min-width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sort-order-btn:hover {
+  background: #2980b9;
+  transform: scale(1.05);
+}
+
+.sort-order-btn:active {
+  transform: scale(0.95);
 }
 
 .summary-info {
@@ -807,6 +842,12 @@ tr:hover {
   background: #e3f2fd;
   color: #2980b9;
   font-weight: 700;
+}
+
+@media (min-width: 768px) {
+  .sort-group {
+    display: none;
+  }
 }
 
 @media (max-width: 768px) {
@@ -897,14 +938,21 @@ tr:hover {
     align-items: flex-start;
   }
 
-  .filter-group {
+  .filter-group,
+  .sort-group {
     width: 100%;
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .category-filter-select {
+  .category-filter-select,
+  .sort-select {
     width: 100%;
+  }
+
+  .sort-order-btn {
+    width: 100%;
+    min-height: 50px;
   }
 
   .summary-info {
