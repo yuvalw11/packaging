@@ -810,8 +810,13 @@ tr:hover {
 }
 
 @media (max-width: 768px) {
+  header h1 {
+    font-size: 1.3rem;
+  }
+
   .tabs {
     overflow-x: auto;
+    padding: 0 0.5rem;
   }
   
   .tabs button {
@@ -819,6 +824,15 @@ tr:hover {
     font-size: 0.9rem;
   }
   
+  main {
+    padding: 0 0.5rem;
+    margin: 1rem auto;
+  }
+
+  .section {
+    padding: 1rem;
+  }
+
   .form {
     flex-direction: column;
   }
@@ -830,10 +844,19 @@ tr:hover {
 
   .suitcase-actions {
     flex-direction: column;
+    width: 100%;
+  }
+
+  .suitcase-actions button {
+    width: 100%;
   }
 
   .add-item-form {
     flex-direction: column;
+  }
+
+  .autocomplete-wrapper {
+    min-width: 100%;
   }
 
   .suitcases-header {
@@ -874,5 +897,110 @@ tr:hover {
   .summary-info {
     width: 100%;
     text-align: center;
+  }
+
+  /* Transform tables into card layout for mobile */
+  .items-table,
+  .summary-table,
+  .results table {
+    border: 0;
+  }
+
+  .items-table thead,
+  .summary-table thead,
+  .results table thead {
+    display: none;
+  }
+
+  .items-table tbody,
+  .summary-table tbody,
+  .results table tbody {
+    display: block;
+  }
+
+  .items-table tr,
+  .summary-table tr,
+  .results table tr {
+    display: block;
+    margin-bottom: 1rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 1rem;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+
+  .items-table tr:hover,
+  .summary-table tr:hover,
+  .results table tr:hover {
+    background: white;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+
+  .items-table td,
+  .summary-table td,
+  .results table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f0f0f0;
+    gap: 0.5rem;
+  }
+
+  .items-table td:last-child,
+  .summary-table td:last-child,
+  .results table td:last-child {
+    border-bottom: none;
+  }
+
+  .items-table td::before,
+  .summary-table td::before,
+  .results table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #2c3e50;
+    flex-shrink: 0;
+    min-width: 100px;
+  }
+
+  /* Special handling for drag handle on mobile */
+  .drag-handle {
+    display: none;
+  }
+
+  .items-table td:first-child::before {
+    content: none;
+  }
+
+  .items-table td:first-child {
+    display: none;
+  }
+
+  /* Make action controls stack vertically */
+  .action-controls {
+    flex-direction: column;
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .move-select,
+  .delete-btn-small {
+    width: 100%;
+  }
+
+  /* Adjust count controls for mobile */
+  .count-controls {
+    justify-content: flex-end;
+  }
+
+  /* Make editable items full width */
+  .edit-item-wrapper .autocomplete-wrapper {
+    min-width: 100%;
+  }
+
+  .editable-item-name {
+    min-width: auto;
+    max-width: 100%;
   }
 }

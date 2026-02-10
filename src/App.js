@@ -838,7 +838,7 @@ function App() {
                               <td className="drag-handle">
                                 <span className="drag-icon">⋮⋮</span>
                               </td>
-                              <td>
+                              <td data-label="Item Type">
                                 {editingType?.type === item.type && editingType?.suitcase_id === item.suitcase_id ? (
                                   <div className="autocomplete-wrapper">
                                     <input
@@ -899,7 +899,7 @@ function App() {
                                   </span>
                                 )}
                               </td>
-                              <td>
+                              <td data-label="Category">
                                 {editingCategory?.type === item.type && editingCategory?.suitcase_id === item.suitcase_id ? (
                                   <div className="autocomplete-wrapper">
                                     <input
@@ -968,7 +968,7 @@ function App() {
                                   </span>
                                 )}
                               </td>
-                              <td>
+                              <td data-label="Count">
                                 <div className="count-controls">
                                   <button 
                                     className="count-btn"
@@ -985,7 +985,7 @@ function App() {
                                   </button>
                                 </div>
                               </td>
-                              <td>
+                              <td data-label="Actions">
                                 <div className="action-controls">
                                   <select 
                                     className="move-select"
@@ -1075,10 +1075,10 @@ function App() {
                   <tbody>
                     {searchResults.map(item => (
                       <tr key={`${item.type}-${item.suitcase_id}`}>
-                        <td>{item.type}</td>
-                        <td>{item.count}</td>
-                        <td>{item.suitcase_name}</td>
-                        <td>
+                        <td data-label="Type">{item.type}</td>
+                        <td data-label="Count">{item.count}</td>
+                        <td data-label="Suitcase">{item.suitcase_name}</td>
+                        <td data-label="Action">
                           <button onClick={() => deleteItem(item.type, item.suitcase_id)} className="delete-btn">
                             Delete
                           </button>
@@ -1152,8 +1152,8 @@ function App() {
               <tbody>
                 {getFilteredAndSortedSummary().map((item, idx) => (
                   <tr key={idx}>
-                    <td>{item.type}</td>
-                    <td>
+                    <td data-label="Item Type">{item.type}</td>
+                    <td data-label="Category">
                       {item.category_name ? (
                         <span
                           style={{
@@ -1170,8 +1170,8 @@ function App() {
                         '-'
                       )}
                     </td>
-                    <td>{item.suitcase_name}</td>
-                    <td>{item.count}</td>
+                    <td data-label="Suitcase">{item.suitcase_name}</td>
+                    <td data-label="Count">{item.count}</td>
                   </tr>
                 ))}
               </tbody>
