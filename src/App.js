@@ -37,6 +37,7 @@ function App() {
   
   // Mobile item card collapse state (tracks expanded items, all others are collapsed by default)
   const [expandedMobileItems, setExpandedMobileItems] = useState(new Set());
+  const [expandedMobileSummaryItems, setExpandedMobileSummaryItems] = useState(new Set());
   
   // Summary filtering and sorting states
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -303,6 +304,19 @@ function App() {
   // Mobile item card collapse toggle
   const toggleMobileItemCollapse = (itemKey) => {
     setExpandedMobileItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemKey)) {
+        newSet.delete(itemKey);
+      } else {
+        newSet.add(itemKey);
+      }
+      return newSet;
+    });
+  };
+
+  // Mobile summary item card collapse toggle
+  const toggleMobileSummaryItemCollapse = (itemKey) => {
+    setExpandedMobileSummaryItems(prev => {
       const newSet = new Set(prev);
       if (newSet.has(itemKey)) {
         newSet.delete(itemKey);
@@ -1179,8 +1193,22 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {getFilteredAndSortedSummary().map((item, idx) => (
-                  <tr key={idx}>
+                {getFilteredAndSortedSummary().map((item, idx) => {
+                  const itemKey = `${item.type}-${item.suitcase_id}`;
+                  const isItemCollapsed = !expandedMobileSummaryItems.has(itemKey);
+                  
+                  return (
+                  <tr 
+                    key={idx}
+                    className={isItemCollapsed ? 'mobile-collapsed' : ''}
+                    data-mobile-summary={`${item.type} • ${item.category_name || 'No category'} • ${item.count}x`}
+                    onClick={(e) => {
+                      // Only toggle on mobile when clicking the card itself
+                      if (window.innerWidth <= 768 && !e.target.closest('button, select, input')) {
+                        toggleMobileSummaryItemCollapse(itemKey);
+                      }
+                    }}
+                  >
                     <td data-label="Item Type">{item.type}</td>
                     <td data-label="Category">
                       {item.category_name ? (
@@ -1202,7 +1230,8 @@ function App() {
                     <td data-label="Suitcase">{item.suitcase_name}</td>
                     <td data-label="Count">{item.count}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

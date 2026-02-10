@@ -1018,14 +1018,16 @@ tr:hover {
   }
 
   /* Mobile collapsible item cards */
-  .items-table tr.mobile-collapsed {
+  .items-table tr.mobile-collapsed,
+  .summary-table tr.mobile-collapsed {
     cursor: pointer;
     position: relative;
     padding: 0.75rem 1rem;
     min-height: auto;
   }
 
-  .items-table tr.mobile-collapsed::before {
+  .items-table tr.mobile-collapsed::before,
+  .summary-table tr.mobile-collapsed::before {
     content: attr(data-mobile-summary);
     display: block;
     font-weight: 500;
@@ -1034,7 +1036,8 @@ tr:hover {
     padding-right: 1.5rem;
   }
 
-  .items-table tr.mobile-collapsed::after {
+  .items-table tr.mobile-collapsed::after,
+  .summary-table tr.mobile-collapsed::after {
     content: '▼';
     position: absolute;
     right: 1rem;
@@ -1044,12 +1047,14 @@ tr:hover {
     font-size: 0.8rem;
   }
 
-  .items-table tr.mobile-collapsed td {
+  .items-table tr.mobile-collapsed td,
+  .summary-table tr.mobile-collapsed td {
     display: none !important;
   }
 
   /* When not collapsed, show expand indicator */
-  .items-table tr:not(.mobile-collapsed)::after {
+  .items-table tr:not(.mobile-collapsed)::after,
+  .summary-table tr:not(.mobile-collapsed)::after {
     content: '▲';
     position: absolute;
     top: 1rem;
@@ -1057,5 +1062,10 @@ tr:hover {
     color: #3498db;
     font-size: 0.8rem;
     cursor: pointer;
+  }
+
+  /* Make sure sortable headers don't trigger on mobile when collapsed */
+  .summary-table th.sortable {
+    -webkit-tap-highlight-color: transparent;
   }
 }
