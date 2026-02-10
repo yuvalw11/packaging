@@ -15,14 +15,35 @@ const db = new sqlite3.Database(dbPath);
 
 // Helper function to generate a random pleasant color
 function generateRandomColor() {
-  const colors = [
-    '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
-    '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B88B', '#ABEBC6',
-    '#FAD7A0', '#D7BDE2', '#A9CCE3', '#F9E79F', '#A3E4D7',
-    '#E8DAEF', '#D5F4E6', '#FADBD8', '#F5CBA7', '#D6EAF8',
-    '#FCF3CF', '#E59866', '#85929E', '#F39C12', '#27AE60'
-  ];
-  return colors[Math.floor(Math.random() * colors.length)];
+const colors = [
+  '#C0392B', // red
+  '#16A085', // teal
+  '#2980B9', // blue
+  '#D35400', // orange
+  '#27AE60', // green
+  '#B7950B', // yellow-olive
+  '#8E44AD', // purple
+  '#2471A3', // light blue
+  '#CA6F1E', // peach
+  '#229954', // mint green
+  '#AF601A', // sand
+  '#7D3C98', // lavender
+  '#1F618D', // sky blue
+  '#9A7D0A', // pale yellow
+  '#148F77', // aqua
+  '#6C3483', // lilac
+  '#1E8449', // sea green
+  '#922B21', // dark pink/red
+  '#A04000', // orange-brown
+  '#1B4F72', // steel blue
+  '#9C640C', // cream yellow
+  '#935116', // burnt orange
+  '#424949', // dark gray-blue
+  '#B9770E', // amber
+  '#196F3D'  // emerald
+];
+
+return colors[Math.floor(Math.random() * colors.length)];
 }
 
 // Helper function to ensure item type exists and optionally set category
