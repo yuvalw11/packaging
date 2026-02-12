@@ -297,21 +297,19 @@ app.get('/api/suitcases/:id/items', (req, res) => {
   });
 });
 
-// Get item count by type (across all suitcases) with category and suitcase info
+// Get item count by type (across all suitcases) with category info
 app.get('/api/items/summary', (req, res) => {
   const query = `
     SELECT 
       items.type,
       categories.name as category_name,
       categories.color as category_color,
-      suitcases.name as suitcase_name,
       COUNT(*) as count
     FROM items
-    JOIN suitcases ON items.suitcase_id = suitcases.id
     LEFT JOIN item_types ON items.type = item_types.name
     LEFT JOIN categories ON item_types.category_id = categories.id
-    GROUP BY items.type, categories.name, categories.color, suitcases.name
-    ORDER BY items.type, suitcases.name
+    GROUP BY items.type, categories.name, categories.color
+    ORDER BY items.type
   `;
   db.all(query, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });

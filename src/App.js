@@ -41,7 +41,7 @@ function App() {
   
   // Summary filtering and sorting states
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('type'); // 'type', 'category', 'suitcase', 'count'
+  const [sortBy, setSortBy] = useState('type'); // 'type', 'category', 'count'
   const [sortOrder, setSortOrder] = useState('asc'); // 'asc' or 'desc'
 
   // Refs to track if we're selecting from dropdown (to prevent blur from saving)
@@ -595,10 +595,6 @@ function App() {
         case 'category':
           compareA = (a.category_name || '').toLowerCase();
           compareB = (b.category_name || '').toLowerCase();
-          break;
-        case 'suitcase':
-          compareA = a.suitcase_name.toLowerCase();
-          compareB = b.suitcase_name.toLowerCase();
           break;
         case 'count':
           compareA = a.count;
@@ -1168,7 +1164,6 @@ function App() {
                 >
                   <option value="type">Item Type</option>
                   <option value="category">Category</option>
-                  <option value="suitcase">Suitcase</option>
                   <option value="count">Count</option>
                 </select>
                 <button 
@@ -1201,12 +1196,6 @@ function App() {
                     Category {sortBy === 'category' && (sortOrder === 'asc' ? '▲' : '▼')}
                   </th>
                   <th 
-                    onClick={() => handleSortClick('suitcase')}
-                    className={`sortable ${sortBy === 'suitcase' ? 'sorted' : ''}`}
-                  >
-                    Suitcase {sortBy === 'suitcase' && (sortOrder === 'asc' ? '▲' : '▼')}
-                  </th>
-                  <th 
                     onClick={() => handleSortClick('count')}
                     className={`sortable ${sortBy === 'count' ? 'sorted' : ''}`}
                   >
@@ -1216,7 +1205,7 @@ function App() {
               </thead>
               <tbody>
                 {getFilteredAndSortedSummary().map((item, idx) => {
-                  const itemKey = `${item.type}-${item.suitcase_id}`;
+                  const itemKey = `${item.type}`;
                   const isItemCollapsed = !expandedMobileSummaryItems.has(itemKey);
                   
                   return (
@@ -1249,7 +1238,6 @@ function App() {
                         '-'
                       )}
                     </td>
-                    <td data-label="Suitcase">{item.suitcase_name}</td>
                     <td data-label="Count">{item.count}</td>
                   </tr>
                   );
