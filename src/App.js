@@ -164,12 +164,13 @@ function App() {
     fetchSummary();
   };
 
-  const searchItems = async () => {
-    if (!searchTerm) {
+  const searchItems = async (term) => {
+    setSearchTerm(term);
+    if (!term) {
       setSearchResults([]);
       return;
     }
-    const res = await fetch(`${API_URL}/items/search?type=${searchTerm}`);
+    const res = await fetch(`${API_URL}/items/search?type=${term}`);
     const data = await res.json();
     setSearchResults(data);
   };
@@ -1096,9 +1097,8 @@ function App() {
                 type="text"
                 placeholder="Search by item type..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => searchItems(e.target.value)}
               />
-              <button onClick={searchItems}>Search</button>
             </div>
             <div className="results">
               {searchResults.length > 0 ? (
