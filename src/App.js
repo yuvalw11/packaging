@@ -749,6 +749,8 @@ function App() {
                           {isCollapsed ? '▼' : '▲'}
                         </button>
                       </div>
+
+                    {!isCollapsed && (
                       <div className="suitcase-actions">
                         <button 
                           onClick={(e) => {
@@ -769,6 +771,7 @@ function App() {
                           Delete
                         </button>
                       </div>
+                    )}
                     </div>
 
                     {!isCollapsed && isAdding && (
